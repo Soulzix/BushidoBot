@@ -19,6 +19,16 @@ class Economy(commands.Cog):
         self.db = UserData()
         logger.info("Economy cog initialized")
 
+    async def cog_load(self):
+        """Log when commands are registered"""
+        logger.info("Registering Economy cog commands...")
+        try:
+            # Force sync commands with Discord
+            await self.bot.tree.sync()
+            logger.info("Successfully synced Economy commands")
+        except Exception as e:
+            logger.error(f"Failed to sync commands: {e}")
+
     @app_commands.command(name="currency", description="Displays the current currency for Bubble Byte.")
     async def currency(self, interaction: discord.Interaction):
         logger.info(f"Currency command used by {interaction.user.name} (ID: {interaction.user.id})")
@@ -415,7 +425,7 @@ class Economy(commands.Cog):
     @app_commands.command(name="trade", description="Trade Yen with another user")
     @app_commands.describe(user="The user to trade with", amount="Amount of Yen to trade")
     async def trade(self, interaction: discord.Interaction, user: discord.Member, amount: int):
-        logger.info(f"Trade command used by {interaction.user.name} (ID: {interaction.user.id}) with {user.name} (ID: {user.id})")
+        logger.info(f"Trade command invoked by {interaction.user.name} (ID: {interaction.user.id}) with {user.name} (ID: {user.id})")
         try:
             # Basic checks
             if user.id == interaction.user.id:
