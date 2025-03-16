@@ -9,6 +9,10 @@ from dotenv import load_dotenv
 import logging
 import asyncio
 from keep_alive import keep_alive
+#Flask for webserver
+from flask import Flask, render_template
+
+app = Flask(__name__)
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -345,9 +349,14 @@ async def rules(interaction: discord.Interaction, category: str = None):
     view = RulesView(pages)
     await interaction.response.send_message(embed=pages[0], view=view)
 
+
+@app.route('/')
+def home():
+    return "Bubble Byte Bot - Status: Online"
+
 # Run the bot with keep-alive
 if __name__ == "__main__":
-    logger.info("Starting Discord bot...")
+    logger.info("Starting Bubble Byte Discord bot...")
     try:
         # Start the keep-alive server
         keep_alive()

@@ -51,7 +51,7 @@ class Help(commands.Cog):
 
         # Economy Commands
         economy = discord.Embed(
-            title="💰 Currency & Economy Commands",
+            title="💰 Bubble Byte - Currency & Economy Commands",
             description="Commands related to the economy system",
             color=discord.Color.gold()
         )
@@ -68,15 +68,14 @@ class Help(commands.Cog):
         )
         embeds.append(economy)
 
-
         # Add footer to all embeds
         for i, embed in enumerate(embeds, 1):
-            embed.set_footer(text=f"Page {i}/{len(embeds)} • Use the buttons below to navigate")
+            embed.set_footer(text=f"Bubble Byte Help - Page {i}/{len(embeds)} • Use the buttons below to navigate")
 
         logger.debug(f"Created {len(embeds)} help embeds")
         return embeds
 
-    @app_commands.command(name="help", description="Shows all available commands")
+    @app_commands.command(name="help", description="Shows all available Bubble Byte commands")
     async def help(self, interaction: discord.Interaction):
         """Displays all available commands in an organized manner"""
         logger.info(f"Help command invoked by {interaction.user.name} (ID: {interaction.user.id})")

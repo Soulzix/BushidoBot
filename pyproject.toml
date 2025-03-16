@@ -1,7 +1,7 @@
 [project]
-name = "repl-nix-workspace"
+name = "bubble-byte-discord-bot"
 version = "0.1.0"
-description = "Add your description here"
+description = "A robust Discord bot with 24/7 uptime providing comprehensive server management, economy, and interactive features."
 requires-python = ">=3.11"
 dependencies = [
     "discord-py>=2.5.2",

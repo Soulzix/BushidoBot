@@ -15,7 +15,7 @@ class Economy(commands.Cog):
         self.db = UserData()
         logger.info("Economy cog initialized")
 
-    @app_commands.command(name="currency", description="Displays the current currency for the server.")
+    @app_commands.command(name="currency", description="Displays the current currency for Bubble Byte.")
     async def currency(self, interaction: discord.Interaction):
         logger.info(f"Currency command used by {interaction.user.name} (ID: {interaction.user.id})")
         try:
@@ -25,7 +25,7 @@ class Economy(commands.Cog):
             logger.error(f"Error in currency command: {e}")
             await interaction.response.send_message("❌ An error occurred. Please try again.", ephemeral=True)
 
-    @app_commands.command(name="checkbalance", description="Shows your balance.")
+    @app_commands.command(name="checkbalance", description="Shows your Bubble Byte balance.")
     async def checkbalance(self, interaction: discord.Interaction):
         logger.info(f"Balance check requested by {interaction.user.name} (ID: {interaction.user.id})")
         try:
