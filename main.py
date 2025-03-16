@@ -1,13 +1,10 @@
 import os
 import discord
 from discord.ext import commands
-import logging
+from discord import app_commands
 from dotenv import load_dotenv
+import random
 from keep_alive import keep_alive
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -18,50 +15,98 @@ TEST_GUILD_ID = int(os.getenv("TEST_GUILD_ID"))
 intents = discord.Intents.default()
 intents.messages = True
 intents.guilds = True
-intents.members = True
-intents.message_content = True
+intents.members = True  # Required for welcome messages
+intents.message_content = True  # Add message content intent
 
-class DiscordBot(commands.Bot):
-    def __init__(self):
-        super().__init__(command_prefix="/", intents=intents)
-        self.initial_extensions = [
-            'cogs.economy',
-            'cogs.moderation',
-            'cogs.fun'
-        ]
+# Initialize bot
+bot = commands.Bot(command_prefix="/", intents=intents)
 
-    async def setup_hook(self):
-        # Load all extensions
-        for ext in self.initial_extensions:
-            try:
-                await self.load_extension(ext)
-                logger.info(f"Loaded extension: {ext}")
-            except Exception as e:
-                logger.error(f"Failed to load extension {ext}: {e}")
-
-        # Sync commands with test guild
+# Sync commands on startup
+@bot.event
+async def on_ready():
+    try:
+        # Sync commands with test guild only
         test_guild = discord.Object(id=TEST_GUILD_ID)
-        try:
-            await self.tree.sync(guild=test_guild)
-            logger.info(f"Slash commands synced to test guild: {TEST_GUILD_ID}")
-        except Exception as e:
-            logger.error(f"Failed to sync commands: {e}")
+        synced = await bot.tree.sync(guild=test_guild)
+        print(f"✅ Slash commands synced to test guild: {len(synced)} commands")
+    except Exception as e:
+        print(f"❌ Failed to sync commands: {e}")
 
-    async def on_ready(self):
-        logger.info(f"🟢 Logged in as {self.user}")
+    print(f"🟢 Logged in as {bot.user}")
 
-    async def on_member_join(self, member):
-        welcome_channel = member.guild.system_channel
-        if welcome_channel:
-            await welcome_channel.send(f"Welcome {member.mention} to the server! 🎉")
+# 🏦 Economy Commands
+@bot.tree.command(name="currency", description="Displays the current currency for the server.")
+async def currency(interaction: discord.Interaction):
+    await interaction.response.send_message("💰 The current server currency is Yen.")
 
-bot = DiscordBot()
+@bot.tree.command(name="checkbalance", description="Shows your balance.")
+async def checkbalance(interaction: discord.Interaction):
+    balance = 1000  # Placeholder balance system
+    await interaction.response.send_message(f"💰 Your balance: {balance} Yen")
 
-@bot.tree.command(name="botwake", description="Check if the bot is awake and responsive")
-async def botwake(interaction: discord.Interaction):
-    await interaction.response.send_message("👋 I'm awake and ready to help!", ephemeral=True)
+@bot.tree.command(name="shop", description="Displays available items in the shop.")
+async def shop(interaction: discord.Interaction):
+    items = "**1️⃣ Katana - 500 Yen**\n**2️⃣ Longsword - 800 Yen**\n**3️⃣ Dagger - 300 Yen**"
+    await interaction.response.send_message(f"🛒 Available Items:\n{items}")
 
-# Start the Flask server to keep the bot alive
+@bot.tree.command(name="buy", description="Buy an item from the shop.")
+@app_commands.describe(item="The item you want to buy (Katana, Longsword, Dagger).")
+async def buy(interaction: discord.Interaction, item: str):
+    valid_items = ["katana", "longsword", "dagger"]
+    if item.lower() not in valid_items:
+        await interaction.response.send_message("❌ Invalid item. Use `/shop` to see available items.")
+        return
+    await interaction.response.send_message(f"✅ You purchased a **{item.capitalize()}**!")
+
+# ⚠️ Moderation Commands (Require Admin Permissions)
+@bot.tree.command(name="warn", description="Warns a user.")
+@app_commands.describe(member="The member to warn.", reason="Reason for the warning.")
+async def warn(interaction: discord.Interaction, member: discord.Member, reason: str):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ You don't have permission to use this command.", ephemeral=True)
+        return
+    await interaction.response.send_message(f"⚠️ **{member.name}** has been warned for: {reason}")
+
+@bot.tree.command(name="slowmode", description="Sets a slowmode delay.")
+@app_commands.describe(seconds="Number of seconds for slowmode.")
+async def slowmode(interaction: discord.Interaction, seconds: int):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message("❌ You don't have permission to use this command.", ephemeral=True)
+        return
+    await interaction.channel.edit(slowmode_delay=seconds)
+    await interaction.response.send_message(f"🐢 Slowmode set to {seconds} seconds.")
+
+# 🎣 Fishing Logger (via Webhook)
+@bot.tree.command(name="logfish", description="Logs caught fish via webhook.")
+@app_commands.describe(fish="Name of the caught fish.", size="Size of the fish in cm.")
+async def logfish(interaction: discord.Interaction, fish: str, size: int):
+    await interaction.response.send_message(f"🎣 **{interaction.user.name}** caught a {fish} ({size}cm)!")
+
+# 🎲 Fun Commands
+@bot.tree.command(name="randomnumber", description="Generates a random number between 1-500,000.")
+async def randomnumber(interaction: discord.Interaction):
+    num = random.randint(1, 500000)
+    await interaction.response.send_message(f"🎲 Random Number: {num}")
+
+# 🏹 Weapon Info
+@bot.tree.command(name="info", description="Displays stats of a weapon.")
+@app_commands.describe(item="The weapon you want to check.")
+async def info(interaction: discord.Interaction, item: str):
+    weapon_stats = {
+        "katana": "⚔️ Katana: 50 Damage, Fast Strikes",
+        "longsword": "🛡️ Longsword: 70 Damage, Balanced",
+        "dagger": "🔪 Dagger: 30 Damage, Super Fast"
+    }
+    response = weapon_stats.get(item.lower(), "❌ Weapon not found. Use `/shop` to see available weapons.")
+    await interaction.response.send_message(response)
+
+# 🎉 Welcome System
+@bot.tree.command(name="welcome", description="Sets a custom welcome message.")
+@app_commands.describe(message="The custom welcome message.")
+async def welcome(interaction: discord.Interaction, message: str):
+    await interaction.response.send_message(f"🎉 Welcome message set: {message}")
+
+# Run the bot
 if __name__ == "__main__":
     keep_alive()
     bot.run(TOKEN)
