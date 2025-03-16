@@ -21,13 +21,23 @@ class Economy(commands.Cog):
 
     async def cog_load(self):
         """Log when commands are registered"""
-        logger.info("Registering Economy cog commands...")
+        logger.info("Economy cog loading...")
         try:
-            # Force sync commands with Discord
-            await self.bot.tree.sync()
-            logger.info("Successfully synced Economy commands")
+            self.bot.add_command(self.currency)
+            self.bot.add_command(self.checkbalance)
+            self.bot.add_command(self.daily)
+            self.bot.add_command(self.weekly)
+            self.bot.add_command(self.beg)
+            self.bot.add_command(self.gamble)
+            self.bot.add_command(self.rob)
+            self.bot.add_command(self.deposit)
+            self.bot.add_command(self.withdraw)
+            self.bot.add_command(self.work)
+            self.bot.add_command(self.trade)
+            self.bot.add_command(self.leaderboard)
+            logger.info("Economy commands registered locally")
         except Exception as e:
-            logger.error(f"Failed to sync commands: {e}")
+            logger.error(f"Failed to register commands: {e}")
 
     @app_commands.command(name="currency", description="Displays the current currency for Bubble Byte.")
     async def currency(self, interaction: discord.Interaction):
