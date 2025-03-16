@@ -1,6 +1,6 @@
 import os
 import math
-from typing import List, Dict
+from typing import List
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -12,25 +12,68 @@ import asyncio
 from keep_alive import keep_alive
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-TEST_GUILD_ID = int(os.getenv("TEST_GUILD_ID"))
+TEST_GUILD_ID = int(os.getenv("TEST_GUILD_ID", "0"))
 
 # Set bot intents
 intents = discord.Intents.default()
 intents.messages = True
 intents.guilds = True
-intents.members = True  # Required for welcome messages
-intents.message_content = True  # Add message content intent
+intents.members = True
+intents.message_content = True
 
 # Initialize bot
 bot = commands.Bot(command_prefix="/", intents=intents)
 
-# Sync commands on startup
+class NavigationButton(Button):
+    def __init__(self, is_next: bool):
+        super().__init__(
+            label="Next ▶️" if is_next else "◀️ Previous",
+            style=discord.ButtonStyle.primary
+        )
+        self.is_next = is_next
+
+    async def callback(self, interaction: discord.Interaction):
+        view = self.view
+        if self.is_next and view.current_page < len(view.pages) - 1:
+            view.current_page += 1
+        elif not self.is_next and view.current_page > 0:
+            view.current_page -= 1
+
+        # Update button states
+        view.update_buttons()
+        await interaction.response.edit_message(embed=view.pages[view.current_page], view=view)
+
+class BasePaginatedView(View):
+    def __init__(self, pages: List[discord.Embed], timeout: float = 180):
+        super().__init__(timeout=timeout)
+        self.pages = pages
+        self.current_page = 0
+
+        # Add navigation buttons
+        self.prev_button = NavigationButton(is_next=False)
+        self.next_button = NavigationButton(is_next=True)
+
+        self.add_item(self.prev_button)
+        self.add_item(self.next_button)
+        self.update_buttons()
+
+    def update_buttons(self):
+        """Update the state of navigation buttons"""
+        self.prev_button.disabled = self.current_page <= 0
+        self.next_button.disabled = self.current_page >= len(self.pages) - 1
+
+class ShopView(BasePaginatedView):
+    pass
+
+class RulesView(BasePaginatedView):
+    pass
+
 @bot.event
 async def on_ready():
     try:
@@ -48,7 +91,6 @@ async def on_ready():
 
     logger.info(f"🟢 Logged in as {bot.user}")
 
-# 🏦 Economy Commands
 @bot.tree.command(name="currency", description="Displays the current currency for the server.")
 async def currency(interaction: discord.Interaction):
     embed = discord.Embed(title="Server Currency", color=discord.Color.gold())
@@ -112,27 +154,6 @@ SHOP_ITEMS = {
         }
     }
 }
-
-class ShopView(View):
-    def __init__(self, pages: List[discord.Embed], timeout: float = 60):
-        super().__init__(timeout=timeout)
-        self.pages = pages
-        self.current_page = 0
-
-        # Add navigation buttons
-        self.add_item(Button(label="◀️ Previous", custom_id="prev", style=discord.ButtonStyle.primary))
-        self.add_item(Button(label="Next ▶️", custom_id="next", style=discord.ButtonStyle.primary))
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.data["custom_id"] == "prev":
-            if self.current_page > 0:
-                self.current_page -= 1
-        elif interaction.data["custom_id"] == "next":
-            if self.current_page < len(self.pages) - 1:
-                self.current_page += 1
-
-        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
-        return True
 
 @bot.tree.command(name="shop", description="Browse the shop by category")
 @app_commands.describe(category="Shop category to view (weapons, tools)")
@@ -291,8 +312,49 @@ async def randomnumber(
     embed.set_footer(text=f"Requested by {interaction.user.name}")
     await interaction.response.send_message(embed=embed)
 
+
+# Added UserData class for cooldown management (This is a placeholder, you need to implement actual database interaction)
+class UserData:
+    def __init__(self):
+        # Replace this with your actual database initialization
+        self.cooldowns = {}
+
+    def can_work(self, user_id):
+        if user_id not in self.cooldowns:
+            self.cooldowns[user_id] = 0  # Set initial cooldown to 0
+            return True, 0
+        else:
+            cooldown = self.cooldowns[user_id]
+            if cooldown < discord.utils.utcnow().timestamp():
+                self.cooldowns[user_id] = discord.utils.utcnow().timestamp() + 86400  # 24 hours cooldown
+                return True, 0
+            else:
+                return False, self.cooldowns[user_id] - discord.utils.utcnow().timestamp()
+
+    def add_work_reward(self, user_id, reward):
+        # Replace this with your actual database update
+        pass # Placeholder - you'll need to implement database interaction here
+
+
 @bot.tree.command(name="work", description="Work to earn Yen (24-hour cooldown)")
 async def work(interaction: discord.Interaction):
+    # Initialize database connection
+    db = UserData()
+
+    # Check cooldown
+    can_work, cooldown = db.can_work(interaction.user.id)
+
+    if not can_work:
+        hours = int(cooldown / 3600)
+        minutes = int((cooldown % 3600) / 60)
+        embed = discord.Embed(
+            title="⏳ Rest Time",
+            description=f"You need to rest! You can work again in {hours}h {minutes}m",
+            color=discord.Color.red()
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+
     # Random job types and rewards
     jobs = {
         "office_work": {
@@ -324,11 +386,14 @@ async def work(interaction: discord.Interaction):
         }
     }
 
-    # Placeholder for cooldown check (will be implemented with database later)
-    # For now, always allow work
     job_type = random.choice(list(jobs.keys()))
     job = jobs[job_type]
     earned = random.randint(job["min"], job["max"])
+
+    # Add reward to database
+    db.add_work_reward(interaction.user.id, earned)
+
+    # Get message and format
     message = random.choice(job["messages"]).format(earned)
 
     embed = discord.Embed(title="💼 Work Results", color=discord.Color.green())
@@ -527,27 +592,6 @@ RULES = {
     }
 }
 
-class RulesView(View):
-    def __init__(self, pages: List[discord.Embed], timeout: float = 60):
-        super().__init__(timeout=timeout)
-        self.pages = pages
-        self.current_page = 0
-
-        # Add navigation buttons
-        self.add_item(Button(label="◀️ Previous", custom_id="prev", style=discord.ButtonStyle.primary))
-        self.add_item(Button(label="Next ▶️", custom_id="next", style=discord.ButtonStyle.primary))
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.data["custom_id"] == "prev":
-            if self.current_page > 0:
-                self.current_page -= 1
-        elif interaction.data["custom_id"] == "next":
-            if self.current_page < len(self.pages) - 1:
-                self.current_page += 1
-
-        await interaction.response.edit_message(embed=self.pages[self.current_page], view=self)
-        return True
-
 @bot.tree.command(name="rules", description="View server rules")
 @app_commands.describe(category="Rules category (warning_1, warning_2, warning_3, instant_ban)")
 async def rules(interaction: discord.Interaction, category: str = None):
@@ -602,11 +646,73 @@ async def rules(interaction: discord.Interaction, category: str = None):
     view = RulesView(pages)
     await interaction.response.send_message(embed=pages[0], view=view)
 
+@bot.tree.command(name="postrules", description="Posts the server rules in the current channel")
+@app_commands.describe(
+    category="Optional category to post specific rules (warning_1, warning_2, warning_3, instant_ban)"
+)
+async def postrules(interaction: discord.Interaction, category: str = None):
+    if not interaction.user.guild_permissions.administrator:
+        embed = discord.Embed(
+            title="❌ Permission Denied",
+            description="You need administrator permissions to use this command.",
+            color=discord.Color.red()
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+
+    if category and category.lower() not in RULES:
+        embed = discord.Embed(
+            title="❌ Invalid Category",
+            description="Available categories: warning_1, warning_2, warning_3, instant_ban",
+            color=discord.Color.red()
+        )
+        await interaction.response.send_message(embed=embed, ephemeral=True)
+        return
+
+    embeds = []
+
+    if category:
+        # Post specific category
+        rules_data = RULES[category.lower()]
+        embed = discord.Embed(title=rules_data['title'], color=discord.Color.gold())
+
+        for rule in rules_data['rules']:
+            embed.add_field(
+                name=rule['name'],
+                value=rule['description'],
+                inline=False
+            )
+        embeds.append(embed)
+    else:
+        # Post all rules
+        overview = discord.Embed(
+            title="** ⟫—–›⚠️ Server Rules ⚠️‹–—⟪**",
+            description="**By joining this server, you agree to follow these rules.**",
+            color=discord.Color.gold()
+        )
+        embeds.append(overview)
+
+        for cat_id, rules_data in RULES.items():
+            category_embed = discord.Embed(title=rules_data['title'], color=discord.Color.gold())
+
+            for rule in rules_data['rules']:
+                category_embed.add_field(
+                    name=rule['name'],
+                    value=rule['description'],
+                    inline=False
+                )
+            embeds.append(category_embed)
+
+    await interaction.response.send_message("📜 Posting rules...", ephemeral=True)
+    for embed in embeds:
+        await interaction.channel.send(embed=embed)
+
+
 # Run the bot
 if __name__ == "__main__":
     logger.info("Starting Discord bot...")
-    keep_alive()
     try:
+        keep_alive()
         bot.run(TOKEN)
     except Exception as e:
         logger.error(f"Failed to start bot: {e}")
