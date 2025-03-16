@@ -63,6 +63,54 @@ def setup_git():
             logger.error("Failed to verify repository. Please check repository name and access token.")
             return False
 
+        # Create .gitignore if it doesn't exist
+        if not os.path.exists('.gitignore'):
+            with open('.gitignore', 'w') as f:
+                f.write("""
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment variables
+.env
+.venv
+.env.*
+
+# Replit specific
+.breakpoints
+.replit
+replit.nix
+.config/
+
+# Database
+*.sqlite
+*.db
+
+# Logs
+*.log
+                """.strip())
+            run_command('git add .gitignore')
+            run_command('git commit -m "Initial commit: Add .gitignore"')
+            logger.info("Created and committed .gitignore")
+
         # Ensure we're on main branch
         try:
             run_command('git checkout main')
