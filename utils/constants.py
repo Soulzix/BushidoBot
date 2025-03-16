@@ -1,3 +1,4 @@
+# Weapon-related constants
 WEAPON_STATS = {
     "katana": {
         "damage": 50,

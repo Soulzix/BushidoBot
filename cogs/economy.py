@@ -5,7 +5,6 @@ from utils.db_manager import UserData
 from utils.constants import WORK_REWARDS
 import random
 import time
-import os
 
 class Economy(commands.Cog):
     def __init__(self, bot):

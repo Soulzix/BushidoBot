@@ -29,26 +29,23 @@ class DiscordBot(commands.Bot):
             'cogs.moderation',
             'cogs.fun'
         ]
-        logger.info("Bot initialization started")
 
     async def setup_hook(self):
-        logger.info("Setting up bot and loading extensions...")
         # Load all extensions
         for ext in self.initial_extensions:
             try:
                 await self.load_extension(ext)
-                logger.info(f"✅ Loaded extension: {ext}")
+                logger.info(f"Loaded extension: {ext}")
             except Exception as e:
-                logger.error(f"❌ Failed to load extension {ext}: {e}")
+                logger.error(f"Failed to load extension {ext}: {e}")
 
-        # Sync commands only with test guild for instant updates
+        # Sync commands with test guild
         test_guild = discord.Object(id=TEST_GUILD_ID)
         try:
-            logger.info(f"Syncing commands to test guild {TEST_GUILD_ID}...")
             await self.tree.sync(guild=test_guild)
-            logger.info("✅ Commands synced successfully")
+            logger.info(f"Slash commands synced to test guild: {TEST_GUILD_ID}")
         except Exception as e:
-            logger.error(f"❌ Failed to sync commands: {e}")
+            logger.error(f"Failed to sync commands: {e}")
 
     async def on_ready(self):
         logger.info(f"🟢 Logged in as {self.user}")

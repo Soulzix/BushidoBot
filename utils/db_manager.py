@@ -1,8 +1,7 @@
 import json
 import os
 import time
-import random
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 
 WORK_COOLDOWN = 3600  # Example cooldown of 1 hour
 
