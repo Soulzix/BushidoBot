@@ -7,7 +7,11 @@ logger = logging.getLogger(__name__)
 
 def run_command(command):
     try:
-        logger.debug(f"Running git command: {command}")
+        # Don't log commands that might contain tokens
+        if not any(sensitive in command for sensitive in ['remote add', 'clone', 'push']):
+            logger.debug(f"Running git command: {command}")
+        else:
+            logger.debug(f"Running sensitive git command (details redacted)")
         process = subprocess.run(command, shell=True, check=True, capture_output=True, text=True)
         return process.stdout.strip()
     except subprocess.CalledProcessError as e:
