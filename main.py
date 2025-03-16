@@ -74,17 +74,36 @@ class ShopView(BasePaginatedView):
 class RulesView(BasePaginatedView):
     pass
 
+async def setup_cogs(bot):
+    """Load all cogs from the cogs directory"""
+    logger.info("Loading cogs...")
+    for filename in os.listdir('./cogs'):
+        if filename.endswith('.py'):
+            try:
+                await bot.load_extension(f'cogs.{filename[:-3]}')
+                logger.info(f"✅ Loaded cog: {filename}")
+            except Exception as e:
+                logger.error(f"❌ Failed to load cog {filename}: {e}")
+
 @bot.event
 async def on_ready():
     try:
+        # Load all cogs first
+        await setup_cogs(bot)
+
         # Add a small delay before syncing to avoid rate limits
         await asyncio.sleep(2)
 
-        # Sync commands with test guild only
+        # First sync global commands
+        logger.info("Syncing global commands...")
+        await bot.tree.sync()
+
+        # Then sync guild-specific commands
         logger.info("Attempting to sync commands with test guild...")
         test_guild = discord.Object(id=TEST_GUILD_ID)
-        synced = await bot.tree.sync(guild=test_guild)
-        logger.info(f"✅ Slash commands synced to test guild: {len(synced)} commands")
+        guild_commands = await bot.tree.sync(guild=test_guild)
+        logger.info(f"✅ Guild commands synced: {len(guild_commands)} commands")
+
     except Exception as e:
         logger.error(f"❌ Failed to sync commands: {e}")
         return
