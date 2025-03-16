@@ -2,8 +2,7 @@ import json
 import os
 import time
 from typing import Dict, Tuple
-
-WORK_COOLDOWN = 3600  # Example cooldown of 1 hour
+from utils.constants import WORK_COOLDOWN
 
 class UserData:
     def __init__(self):
@@ -26,8 +25,8 @@ class UserData:
     def _init_user(self, user_id: str) -> None:
         if user_id not in self.data:
             self.data[user_id] = {
-                "balance": 1000,
-                "last_work": 0  # Timestamp of last work command
+                "balance": 1000,  # Starting balance
+                "last_work": 0    # Timestamp of last work command
             }
             self._save_data()
 

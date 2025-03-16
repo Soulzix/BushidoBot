@@ -30,7 +30,7 @@ class Economy(commands.Cog):
         logger.info(f"Balance check requested by {interaction.user.name} (ID: {interaction.user.id})")
         try:
             balance = self.db.get_balance(interaction.user.id)
-            await interaction.response.send_message(f"💰 Your balance: {balance} Yen")
+            await interaction.response.send_message(f"💰 Your balance: {balance:,} Yen")
             logger.info(f"Balance check completed for user {interaction.user.id}: {balance} Yen")
         except Exception as e:
             logger.error(f"Error in checkbalance command: {e}")
@@ -88,16 +88,13 @@ class Economy(commands.Cog):
                 inline=True
             )
 
-            # Add new balance if available
-            try:
-                new_balance = self.db.get_balance(interaction.user.id)
-                embed.add_field(
-                    name="New Balance",
-                    value=f"{new_balance:,} Yen",
-                    inline=False
-                )
-            except Exception as e:
-                logger.warning(f"Could not fetch new balance for user {interaction.user.id}: {e}")
+            # Add new balance
+            new_balance = self.db.get_balance(interaction.user.id)
+            embed.add_field(
+                name="New Balance",
+                value=f"{new_balance:,} Yen",
+                inline=False
+            )
 
             embed.set_footer(text="You can work again in 24 hours!")
 
