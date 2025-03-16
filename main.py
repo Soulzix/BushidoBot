@@ -113,22 +113,37 @@ async def on_ready():
         # Load all cogs first
         await setup_cogs(bot)
 
-        # Add a small delay before syncing to avoid rate limits
-        await asyncio.sleep(2)
+        # Add a delay to avoid rate limits
+        await asyncio.sleep(5)
+        logger.info("Starting command sync with rate limit handling...")
 
-        # First sync global commands
-        logger.info("Syncing global commands...")
-        synced = await bot.tree.sync()
-        logger.info(f"Synced {len(synced)} global commands")
+        try:
+            # First sync global commands
+            logger.info("Syncing global commands...")
+            synced = await bot.tree.sync()
+            logger.info(f"Synced {len(synced)} global commands")
 
-        # Then sync guild-specific commands if TEST_GUILD_ID is valid
-        if TEST_GUILD_ID != 0:
-            logger.info(f"Attempting to sync commands with test guild {TEST_GUILD_ID}...")
-            test_guild = discord.Object(id=TEST_GUILD_ID)
-            guild_commands = await bot.tree.sync(guild=test_guild)
-            logger.info(f"✅ Guild commands synced: {len(guild_commands)} commands")
-        else:
-            logger.warning("TEST_GUILD_ID not set or invalid, skipping guild-specific command sync")
+            # Then sync guild-specific commands if TEST_GUILD_ID is valid
+            if TEST_GUILD_ID != 0:
+                await asyncio.sleep(2)  # Additional delay between syncs
+                logger.info(f"Attempting to sync commands with test guild {TEST_GUILD_ID}...")
+                test_guild = discord.Object(id=TEST_GUILD_ID)
+                guild_commands = await bot.tree.sync(guild=test_guild)
+                logger.info(f"✅ Guild commands synced: {len(guild_commands)} commands")
+            else:
+                logger.warning("TEST_GUILD_ID not set or invalid, skipping guild-specific command sync")
+
+        except discord.HTTPException as e:
+            if e.status == 429:  # Rate limit error
+                retry_after = e.retry_after
+                logger.warning(f"Rate limited during command sync. Retrying in {retry_after} seconds")
+                await asyncio.sleep(retry_after)
+                # Retry the sync
+                synced = await bot.tree.sync()
+                logger.info(f"Successfully synced {len(synced)} commands after rate limit")
+            else:
+                logger.error(f"HTTP error during command sync: {e}")
+                return
 
         # Sync initial setup to GitHub
         await sync_to_github()
@@ -138,7 +153,7 @@ async def on_ready():
         logger.info("Bot is ready and commands are synced!")
 
     except Exception as e:
-        logger.error(f"❌ Failed to sync commands: {e}")
+        logger.error(f"❌ Failed during bot startup: {e}")
         return
 
 @bot.tree.error
