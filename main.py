@@ -29,23 +29,26 @@ class DiscordBot(commands.Bot):
             'cogs.moderation',
             'cogs.fun'
         ]
+        logger.info("Bot initialization started")
 
     async def setup_hook(self):
+        logger.info("Setting up bot and loading extensions...")
         # Load all extensions
         for ext in self.initial_extensions:
             try:
                 await self.load_extension(ext)
-                logger.info(f"Loaded extension: {ext}")
+                logger.info(f"✅ Loaded extension: {ext}")
             except Exception as e:
-                logger.error(f"Failed to load extension {ext}: {e}")
+                logger.error(f"❌ Failed to load extension {ext}: {e}")
 
-        # Sync commands with the test guild for immediate registration
+        # Sync commands only with test guild for instant updates
         test_guild = discord.Object(id=TEST_GUILD_ID)
         try:
+            logger.info(f"Syncing commands to test guild {TEST_GUILD_ID}...")
             await self.tree.sync(guild=test_guild)
-            logger.info(f"🔄 Slash commands synced to test guild: {TEST_GUILD_ID}")
+            logger.info("✅ Commands synced successfully")
         except Exception as e:
-            logger.error(f"❌ Failed to sync commands to test guild: {e}")
+            logger.error(f"❌ Failed to sync commands: {e}")
 
     async def on_ready(self):
         logger.info(f"🟢 Logged in as {self.user}")
@@ -62,7 +65,6 @@ async def botwake(interaction: discord.Interaction):
     await interaction.response.send_message("👋 I'm awake and ready to help!", ephemeral=True)
 
 # Start the Flask server to keep the bot alive
-keep_alive()
-
 if __name__ == "__main__":
+    keep_alive()
     bot.run(TOKEN)
