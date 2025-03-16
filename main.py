@@ -11,6 +11,7 @@ import asyncio
 from keep_alive import keep_alive
 #Flask for webserver
 from flask import Flask, render_template
+import git_sync
 
 app = Flask(__name__)
 
@@ -97,6 +98,15 @@ async def setup_cogs(bot):
             except Exception as e:
                 logger.error(f"❌ Failed to load cog {filename}: {e}")
 
+async def sync_to_github():
+    """Sync changes to GitHub repository"""
+    try:
+        git_sync.setup_git()
+        git_sync.sync_changes()
+        logger.info("Successfully synced changes to GitHub")
+    except Exception as e:
+        logger.error(f"Failed to sync to GitHub: {e}")
+
 @bot.event
 async def on_ready():
     try:
@@ -119,6 +129,10 @@ async def on_ready():
             logger.info(f"✅ Guild commands synced: {len(guild_commands)} commands")
         else:
             logger.warning("TEST_GUILD_ID not set or invalid, skipping guild-specific command sync")
+
+        # Sync initial setup to GitHub
+        await sync_to_github()
+        logger.info("Initial GitHub sync completed")
 
         logger.info(f"🟢 Logged in as {bot.user}")
         logger.info("Bot is ready and commands are synced!")
