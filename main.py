@@ -6,10 +6,9 @@ from discord.ext import commands
 from discord import app_commands
 from discord.ui import Button, View
 from dotenv import load_dotenv
-import random
 import logging
 import asyncio
-from keep_alive import app, keep_alive
+from keep_alive import keep_alive
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -18,7 +17,16 @@ logger = logging.getLogger(__name__)
 # Load environment variables
 load_dotenv()
 TOKEN = os.getenv("DISCORD_BOT_TOKEN")
-TEST_GUILD_ID = int(os.getenv("TEST_GUILD_ID", "0"))
+TEST_GUILD_ID = os.getenv("TEST_GUILD_ID")
+if TEST_GUILD_ID:
+    try:
+        TEST_GUILD_ID = int(TEST_GUILD_ID)
+        logger.info(f"Using test guild ID: {TEST_GUILD_ID}")
+    except ValueError:
+        logger.error("Invalid TEST_GUILD_ID format")
+        TEST_GUILD_ID = 0
+else:
+    TEST_GUILD_ID = 0
 
 # Set bot intents
 intents = discord.Intents.default()
@@ -96,19 +104,47 @@ async def on_ready():
 
         # First sync global commands
         logger.info("Syncing global commands...")
-        await bot.tree.sync()
+        synced = await bot.tree.sync()
+        logger.info(f"Synced {len(synced)} global commands")
 
-        # Then sync guild-specific commands
-        logger.info("Attempting to sync commands with test guild...")
-        test_guild = discord.Object(id=TEST_GUILD_ID)
-        guild_commands = await bot.tree.sync(guild=test_guild)
-        logger.info(f"✅ Guild commands synced: {len(guild_commands)} commands")
+        # Then sync guild-specific commands if TEST_GUILD_ID is valid
+        if TEST_GUILD_ID != 0:
+            logger.info(f"Attempting to sync commands with test guild {TEST_GUILD_ID}...")
+            test_guild = discord.Object(id=TEST_GUILD_ID)
+            guild_commands = await bot.tree.sync(guild=test_guild)
+            logger.info(f"✅ Guild commands synced: {len(guild_commands)} commands")
+        else:
+            logger.warning("TEST_GUILD_ID not set or invalid, skipping guild-specific command sync")
+
+        logger.info(f"🟢 Logged in as {bot.user}")
+        logger.info("Bot is ready and commands are synced!")
 
     except Exception as e:
         logger.error(f"❌ Failed to sync commands: {e}")
         return
 
-    logger.info(f"🟢 Logged in as {bot.user}")
+@bot.tree.error
+async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    """Global error handler for application commands"""
+    logger.error(f"Command error in {interaction.command.name if interaction.command else 'unknown command'}: {error}")
+    logger.error(f"User: {interaction.user.name} (ID: {interaction.user.id})")
+    logger.error(f"Guild: {interaction.guild.name if interaction.guild else 'DM'} (ID: {interaction.guild_id if interaction.guild else 'N/A'})")
+
+    if isinstance(error, app_commands.CommandOnCooldown):
+        await interaction.response.send_message(
+            f"This command is on cooldown. Try again in {error.retry_after:.2f}s",
+            ephemeral=True
+        )
+    elif isinstance(error, app_commands.MissingPermissions):
+        await interaction.response.send_message(
+            "You don't have permission to use this command.",
+            ephemeral=True
+        )
+    else:
+        await interaction.response.send_message(
+            "An error occurred while executing the command. Please try again later.",
+            ephemeral=True
+        )
 
 # Shop items database
 SHOP_ITEMS = {
@@ -309,11 +345,15 @@ async def rules(interaction: discord.Interaction, category: str = None):
     view = RulesView(pages)
     await interaction.response.send_message(embed=pages[0], view=view)
 
-# Run the bot
+# Run the bot with keep-alive
 if __name__ == "__main__":
     logger.info("Starting Discord bot...")
     try:
+        # Start the keep-alive server
         keep_alive()
+        logger.info("Keep-alive server started successfully")
+
+        # Run the bot
         bot.run(TOKEN)
     except Exception as e:
         logger.error(f"Failed to start bot: {e}")

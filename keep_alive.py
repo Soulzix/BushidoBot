@@ -14,8 +14,9 @@ def home():
     return "Bot is alive!"
 
 def run():
-    port = int(os.getenv("KEEP_ALIVE_PORT", 3000))
     try:
+        # Use port 8080 which is standard for Replit
+        port = int(os.getenv("PORT", 8080))
         app.run(host='0.0.0.0', port=port)
     except Exception as e:
         logger.error(f"Failed to start keep-alive server: {e}")
