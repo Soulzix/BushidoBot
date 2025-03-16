@@ -1,0 +1,47 @@
+💰 Currency & Economy Commands (Everyone)
+/balance – Check your current yen.
+/daily – Claim your daily yen reward.
+/weekly – Collect your weekly bonus.
+/work – Earn yen through work. (Cooldown: 1 hour)
+/beg – Ask for yen (chance of failure). (Cooldown: 10 minutes)
+/gamble (amount) – Bet yen for a chance to win or lose.
+/rob @user – Attempt to steal yen. (Chance of failure & jail time!)
+/deposit (amount) – Store yen in your bank.
+/withdraw (amount) – Take yen out of the bank.
+🛒 Shop System (Everyone)
+/shop – Opens the shop menu (starts at Page 1).
+◀️ Previous – Goes back one shop page.
+▶️ Next – Moves forward one shop page.
+/buy (item name) – Purchases an item.
+/sell (item name) – Sells an item.
+/inventory – Shows your owned items.
+🔹 General Commands (Everyone)
+/wakeup – Forces the bot to respond if it's idle or unresponsive.
+/help – Displays all available commands.
+/rules – Shows server rules.
+/ping – Checks bot response time.
+/serverinfo – Displays server details.
+/userinfo @user – Shows information about a user.
+/avatar @user – Retrieves a user’s avatar.
+/invite – Generates an invite link.
+/suggest (suggestion) – Sends a suggestion to staff.
+/report @user (reason) – Reports a user.
+/poll (question) – Starts a poll.
+/verify – Grants server access (via role, captcha, or approval).
+/connectroblox (Roblox Username) – Links your Roblox account to Discord.
+🔹 In-Game Profile Management (Linked Roblox Account Required)
+/changename (new in-game name) – Changes your in-game character name.
+/changeavatar (new avatar image URL) – Changes your in-game character avatar.
+/changeoutfit (outfit ID) – Changes your in-game outfit by providing the Roblox outfit ID.
+🔧 Staff-Only Commands (Moderators & Admins)
+/mute @user (time) – Mutes a user for a set time.
+/unmute @user – Unmutes a user.
+/ban @user (reason) – Bans a user.
+/unban @user – Unbans a user.
+/kick @user (reason) – Kicks a user.
+/warn @user (reason) – Issues a warning.
+/clear (amount) – Deletes a number of messages.
+/slowmode (time) – Enables slow mode in a channel.
+/lock – Locks a channel for everyone.
+/unlock – Unlocks a channel.
+/rulebook – Displays server rules (for mods+ only).
