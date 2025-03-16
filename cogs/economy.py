@@ -7,6 +7,8 @@ import random
 import time
 from datetime import datetime, timedelta
 import logging
+from discord.ui import Button, View
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -408,6 +410,101 @@ class Economy(commands.Cog):
         except Exception as e:
             logger.error(f"Error in work command: {e}")
             await interaction.response.send_message("❌ An error occurred while working. Please try again.", ephemeral=True)
+
+    @app_commands.command(name="trade", description="Trade Yen with another user")
+    @app_commands.describe(user="The user to trade with", amount="Amount of Yen to trade")
+    async def trade(self, interaction: discord.Interaction, user: discord.Member, amount: int):
+        logger.info(f"Trade command used by {interaction.user.name} (ID: {interaction.user.id}) with {user.name} (ID: {user.id})")
+        try:
+            # Basic checks
+            if user.id == interaction.user.id:
+                await interaction.response.send_message("❌ You can't trade with yourself!", ephemeral=True)
+                return
+
+            if amount <= 0:
+                await interaction.response.send_message("❌ Trade amount must be positive!", ephemeral=True)
+                return
+
+            sender_balance = self.db.get_balance(interaction.user.id)
+            if amount > sender_balance:
+                await interaction.response.send_message("❌ You don't have enough Yen!", ephemeral=True)
+                return
+
+            # Create and send trade request
+            view = TradeView(interaction.user, user, amount, self.db)
+            embed = discord.Embed(
+                title="🤝 Trade Request",
+                description=f"{interaction.user.mention} wants to send {amount:,} Yen to {user.mention}",
+                color=discord.Color.blue()
+            )
+            embed.add_field(name="Status", value="Waiting for response...", inline=False)
+            embed.set_footer(text="This request will expire in 60 seconds")
+
+            await interaction.response.send_message(embed=embed, view=view)
+
+            # Wait for the view to finish
+            timed_out = await view.wait()
+
+            if timed_out:
+                embed.description = "Trade request timed out!"
+                embed.color = discord.Color.red()
+                await interaction.edit_original_response(embed=embed, view=None)
+                logger.info(f"Trade request timed out between {interaction.user.id} and {user.id}")
+
+        except Exception as e:
+            logger.error(f"Error in trade command: {e}")
+            await interaction.response.send_message("❌ An error occurred while processing the trade. Please try again.", ephemeral=True)
+
+
+class TradeView(View):
+    def __init__(self, sender: discord.Member, receiver: discord.Member, amount: int, db):
+        super().__init__(timeout=60.0)  # 60 second timeout
+        self.sender = sender
+        self.receiver = receiver
+        self.amount = amount
+        self.db = db
+        self.status = None
+
+    @discord.ui.button(label="Accept", style=discord.ButtonStyle.green)
+    async def accept_button(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.receiver.id:
+            await interaction.response.send_message("This trade isn't for you!", ephemeral=True)
+            return
+
+        # Check if sender still has enough balance
+        sender_balance = self.db.get_balance(self.sender.id)
+        if sender_balance < self.amount:
+            await interaction.response.send_message("The sender no longer has enough Yen!", ephemeral=True)
+            self.status = "failed"
+            self.stop()
+            return
+
+        # Process the trade
+        self.db.transfer_balance(self.sender.id, self.receiver.id, self.amount)
+
+        embed = discord.Embed(
+            title="🤝 Trade Completed!",
+            description=f"{self.sender.mention} sent {self.amount:,} Yen to {self.receiver.mention}",
+            color=discord.Color.green()
+        )
+        await interaction.response.edit_message(embed=embed, view=None)
+        self.status = "completed"
+        self.stop()
+
+    @discord.ui.button(label="Decline", style=discord.ButtonStyle.red)
+    async def decline_button(self, interaction: discord.Interaction, button: Button):
+        if interaction.user.id != self.receiver.id:
+            await interaction.response.send_message("This trade isn't for you!", ephemeral=True)
+            return
+
+        embed = discord.Embed(
+            title="❌ Trade Declined",
+            description=f"{self.receiver.mention} declined the trade of {self.amount:,} Yen from {self.sender.mention}",
+            color=discord.Color.red()
+        )
+        await interaction.response.edit_message(embed=embed, view=None)
+        self.status = "declined"
+        self.stop()
 
 async def setup(bot):
     logger.info("Setting up Economy cog")
