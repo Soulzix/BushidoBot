@@ -2,9 +2,9 @@ import json
 import os
 import time
 import random
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, Optional, Tuple
 
-WORK_COOLDOWN = 3600 # Example cooldown of 1 hour
+WORK_COOLDOWN = 3600  # Example cooldown of 1 hour
 
 class UserData:
     def __init__(self):
@@ -28,9 +28,7 @@ class UserData:
         if user_id not in self.data:
             self.data[user_id] = {
                 "balance": 1000,
-                "inventory": [],
-                "last_work": 0,  # Timestamp of last work command
-                "roles": []  # List of purchased roles
+                "last_work": 0  # Timestamp of last work command
             }
             self._save_data()
 
@@ -38,22 +36,6 @@ class UserData:
         user_id = str(user_id)
         self._init_user(user_id)
         return self.data[user_id]["balance"]
-
-    def get_inventory(self, user_id: int) -> List[str]:
-        user_id = str(user_id)
-        self._init_user(user_id)
-        return self.data[user_id]["inventory"]
-
-    def purchase_item(self, user_id: int, item: str, price: int) -> bool:
-        user_id = str(user_id)
-        self._init_user(user_id)
-
-        if self.data[user_id]["balance"] >= price:
-            self.data[user_id]["balance"] -= price
-            self.data[user_id]["inventory"].append(item)
-            self._save_data()
-            return True
-        return False
 
     def can_work(self, user_id: int) -> Tuple[bool, int]:
         """Check if user can work and return cooldown time remaining"""
