@@ -2,7 +2,7 @@ import json
 import os
 import time
 import random
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, List
 
 WORK_COOLDOWN = 3600 # Example cooldown of 1 hour
 
@@ -29,7 +29,8 @@ class UserData:
             self.data[user_id] = {
                 "balance": 1000,
                 "inventory": [],
-                "last_work": 0  # Timestamp of last work command
+                "last_work": 0,  # Timestamp of last work command
+                "roles": []  # List of purchased roles
             }
             self._save_data()
 
@@ -37,6 +38,11 @@ class UserData:
         user_id = str(user_id)
         self._init_user(user_id)
         return self.data[user_id]["balance"]
+
+    def get_inventory(self, user_id: int) -> List[str]:
+        user_id = str(user_id)
+        self._init_user(user_id)
+        return self.data[user_id]["inventory"]
 
     def purchase_item(self, user_id: int, item: str, price: int) -> bool:
         user_id = str(user_id)

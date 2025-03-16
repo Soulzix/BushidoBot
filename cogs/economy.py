@@ -2,14 +2,16 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from utils.db_manager import UserData
-from utils.constants import WORK_REWARDS
+from utils.constants import WORK_REWARDS, SHOP_ITEMS, SHOP_EMOJIS
 import random
 import time
+import os
 
 class Economy(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db = UserData()
+        self.shop_pages = {}  # Stores current page for each user
 
     @app_commands.command(name="currency", description="Displays the current currency for the server.")
     async def currency(self, interaction: discord.Interaction):
@@ -44,33 +46,125 @@ class Economy(commands.Cog):
 
         await interaction.response.send_message(message)
 
+    def create_shop_embed(self, category: str, user_balance: int) -> discord.Embed:
+        """Creates a shop embed for a specific category"""
+        emoji = SHOP_EMOJIS.get(category, "🛍️")
+        embed = discord.Embed(
+            title=f"{emoji} Shop - {category.capitalize()}",
+            description="Use `/buy [item]` to purchase!\n⬅️ and ➡️ to navigate categories",
+            color=discord.Color.blue()
+        )
+
+        # Add items from the category
+        items = SHOP_ITEMS[category]
+        for item_name, item_data in items.items():
+            name = f"{item_name.capitalize()} - {item_data['price']} Yen"
+            affordable = "✅" if user_balance >= item_data['price'] else "❌"
+            value = f"{item_data['description']}\n{affordable} Can afford"
+            embed.add_field(name=name, value=value, inline=False)
+
+        # Add navigation footer
+        categories = list(SHOP_ITEMS.keys())
+        current_index = categories.index(category)
+        nav_text = f"Page {current_index + 1}/{len(categories)}"
+        embed.set_footer(text=nav_text)
+
+        return embed
+
     @app_commands.command(name="shop", description="Displays available items in the shop.")
     async def shop(self, interaction: discord.Interaction):
-        embed = discord.Embed(title="🛒 Shop", color=discord.Color.blue())
-        embed.add_field(name="1️⃣ Katana", value="500 Yen", inline=False)
-        embed.add_field(name="2️⃣ Longsword", value="800 Yen", inline=False)
-        embed.add_field(name="3️⃣ Dagger", value="300 Yen", inline=False)
+        # Get user's balance
+        balance = self.db.get_balance(interaction.user.id)
+
+        # Start with the first category
+        first_category = list(SHOP_ITEMS.keys())[0]
+        embed = self.create_shop_embed(first_category, balance)
+
+        # Store the current category for this user
+        self.shop_pages[interaction.user.id] = first_category
+
+        # Send embed with navigation buttons
         await interaction.response.send_message(embed=embed)
 
     @app_commands.command(name="buy", description="Buy an item from the shop.")
-    @app_commands.describe(item="The item you want to buy (Katana, Longsword, Dagger).")
+    @app_commands.describe(item="The item you want to buy")
     async def buy(self, interaction: discord.Interaction, item: str):
-        items = {
-            "katana": 500,
-            "longsword": 800,
-            "dagger": 300
-        }
-
         item = item.lower()
-        if item not in items:
+
+        # Find the item in all categories
+        found_category = None
+        item_data = None
+
+        for category, items in SHOP_ITEMS.items():
+            if item in items:
+                found_category = category
+                item_data = items[item]
+                break
+
+        if not item_data:
             await interaction.response.send_message("❌ Invalid item. Use `/shop` to see available items.")
             return
 
-        price = items[item]
+        price = item_data["price"]
         if self.db.purchase_item(interaction.user.id, item, price):
-            await interaction.response.send_message(f"✅ You purchased a **{item.capitalize()}**!")
+            # If it's a role, assign it
+            if item_data["type"] == "role":
+                role_name = item.capitalize()
+                try:
+                    # Try to find the role or create it
+                    role = discord.utils.get(interaction.guild.roles, name=role_name)
+                    if not role:
+                        role = await interaction.guild.create_role(name=role_name)
+                    await interaction.user.add_roles(role)
+                    await interaction.response.send_message(f"✅ You purchased and received the **{role_name}** role!")
+                except discord.Forbidden:
+                    await interaction.response.send_message(
+                        f"✅ You purchased the **{role_name}** role, but I don't have permission to assign it. "
+                        "Please contact a server administrator."
+                    )
+            else:
+                await interaction.response.send_message(f"✅ You purchased a **{item.capitalize()}**!")
         else:
             await interaction.response.send_message("❌ Insufficient funds!")
+
+    @app_commands.command(name="inventory", description="Display your inventory")
+    async def inventory(self, interaction: discord.Interaction):
+        # Get user's inventory from database
+        user_id = interaction.user.id
+        inventory = self.db.get_inventory(user_id)
+
+        if not inventory:
+            await interaction.response.send_message("Your inventory is empty!")
+            return
+
+        # Create embed
+        embed = discord.Embed(title="🎒 Your Inventory", color=discord.Color.green())
+
+        # Group items by category
+        categorized_items = {}
+        for item in inventory:
+            # Find item category
+            for category, items in SHOP_ITEMS.items():
+                if item in items:
+                    if category not in categorized_items:
+                        categorized_items[category] = []
+                    categorized_items[category].append(item)
+                    break
+
+        # Add fields for each category
+        for category, items in categorized_items.items():
+            emoji = SHOP_EMOJIS.get(category, "📦")
+            items_text = "\n".join([
+                f"• {item.capitalize()} - Worth: {SHOP_ITEMS[category][item]['price']} Yen"
+                for item in items
+            ])
+            embed.add_field(
+                name=f"{emoji} {category.capitalize()}",
+                value=items_text,
+                inline=False
+            )
+
+        await interaction.response.send_message(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Economy(bot))
