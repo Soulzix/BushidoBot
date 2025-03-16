@@ -8,7 +8,8 @@ logger = logging.getLogger(__name__)
 def run_command(command):
     try:
         # Don't log commands that might contain tokens
-        if not any(sensitive in command for sensitive in ['remote add', 'clone', 'push']):
+        sensitive_terms = ['remote add', 'clone', 'push', 'token', 'auth', 'password', 'secret']
+        if not any(term in command for term in sensitive_terms):
             logger.debug(f"Running git command: {command}")
         else:
             logger.debug(f"Running sensitive git command (details redacted)")
@@ -53,6 +54,14 @@ def setup_git():
 
         run_command(f'git remote add origin {remote_url}')
         logger.info("Git remote configured successfully")
+
+        # Verify repository exists
+        try:
+            run_command('git ls-remote --exit-code')
+            logger.info("Repository verification successful")
+        except subprocess.CalledProcessError:
+            logger.error("Failed to verify repository. Please check repository name and access token.")
+            return False
 
         # Ensure we're on main branch
         try:
