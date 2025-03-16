@@ -1,7 +1,7 @@
 import json
 import os
 import time
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 from utils.constants import WORK_COOLDOWN
 
 class UserData:
@@ -26,7 +26,8 @@ class UserData:
         if user_id not in self.data:
             self.data[user_id] = {
                 "balance": 1000,  # Starting balance
-                "last_work": 0    # Timestamp of last work command
+                "last_work": 0,   # Timestamp of last work command
+                "warnings": []    # List to store warnings
             }
             self._save_data()
 
@@ -57,3 +58,37 @@ class UserData:
         self.data[user_id]["balance"] += amount
         self.data[user_id]["last_work"] = int(time.time())
         self._save_data()
+
+    def add_warning(self, user_id: int, reason: str, mod_id: int, timestamp: int = None) -> None:
+        """Add a warning to a user's record"""
+        user_id = str(user_id)
+        self._init_user(user_id)
+
+        if timestamp is None:
+            timestamp = int(time.time())
+
+        warning = {
+            "reason": reason,
+            "mod_id": mod_id,
+            "timestamp": timestamp
+        }
+
+        self.data[user_id]["warnings"].append(warning)
+        self._save_data()
+
+    def get_warnings(self, user_id: int) -> List[Dict]:
+        """Get all warnings for a user"""
+        user_id = str(user_id)
+        self._init_user(user_id)
+        return self.data[user_id]["warnings"]
+
+    def clear_warnings(self, user_id: int) -> int:
+        """Clear all warnings for a user and return the number of warnings cleared"""
+        user_id = str(user_id)
+        self._init_user(user_id)
+
+        num_warnings = len(self.data[user_id]["warnings"])
+        self.data[user_id]["warnings"] = []
+        self._save_data()
+
+        return num_warnings
