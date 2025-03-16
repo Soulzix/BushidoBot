@@ -39,9 +39,8 @@ class DiscordBot(commands.Bot):
             except Exception as e:
                 logger.error(f"Failed to load extension {ext}: {e}")
 
-        # Sync commands with the test guild first for immediate registration
+        # Sync commands with the test guild for immediate registration
         test_guild = discord.Object(id=TEST_GUILD_ID)
-        self.tree.copy_global_to(guild=test_guild)
         try:
             await self.tree.sync(guild=test_guild)
             logger.info(f"🔄 Slash commands synced to test guild: {TEST_GUILD_ID}")
@@ -50,8 +49,6 @@ class DiscordBot(commands.Bot):
 
     async def on_ready(self):
         logger.info(f"🟢 Logged in as {self.user}")
-        await self.tree.sync()  # Sync commands globally
-        logger.info("Global commands synced")
 
     async def on_member_join(self, member):
         welcome_channel = member.guild.system_channel

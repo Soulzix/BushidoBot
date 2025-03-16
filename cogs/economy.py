@@ -46,45 +46,23 @@ class Economy(commands.Cog):
 
         await interaction.response.send_message(message)
 
-    def create_shop_embed(self, category: str, user_balance: int) -> discord.Embed:
-        """Creates a shop embed for a specific category"""
-        emoji = SHOP_EMOJIS.get(category, "🛍️")
-        embed = discord.Embed(
-            title=f"{emoji} Shop - {category.capitalize()}",
-            description="Use `/buy [item]` to purchase!\n⬅️ and ➡️ to navigate categories",
-            color=discord.Color.blue()
-        )
-
-        # Add items from the category
-        items = SHOP_ITEMS[category]
-        for item_name, item_data in items.items():
-            name = f"{item_name.capitalize()} - {item_data['price']} Yen"
-            affordable = "✅" if user_balance >= item_data['price'] else "❌"
-            value = f"{item_data['description']}\n{affordable} Can afford"
-            embed.add_field(name=name, value=value, inline=False)
-
-        # Add navigation footer
-        categories = list(SHOP_ITEMS.keys())
-        current_index = categories.index(category)
-        nav_text = f"Page {current_index + 1}/{len(categories)}"
-        embed.set_footer(text=nav_text)
-
-        return embed
-
     @app_commands.command(name="shop", description="Displays available items in the shop.")
     async def shop(self, interaction: discord.Interaction):
         # Get user's balance
         balance = self.db.get_balance(interaction.user.id)
 
-        # Start with the first category
-        first_category = list(SHOP_ITEMS.keys())[0]
-        embed = self.create_shop_embed(first_category, balance)
+        # Create the shop view with navigation buttons
+        view = ShopView(self.bot, balance)
 
-        # Store the current category for this user
+        # Create initial embed for the first category
+        first_category = list(SHOP_ITEMS.keys())[0]
+        embed = view.create_shop_embed(first_category, balance)
+
+        # Store the current category
         self.shop_pages[interaction.user.id] = first_category
 
-        # Send embed with navigation buttons
-        await interaction.response.send_message(embed=embed)
+        # Send message with view
+        await interaction.response.send_message(embed=embed, view=view)
 
     @app_commands.command(name="buy", description="Buy an item from the shop.")
     @app_commands.describe(item="The item you want to buy")
@@ -165,6 +143,64 @@ class Economy(commands.Cog):
             )
 
         await interaction.response.send_message(embed=embed)
+
+class ShopView(discord.ui.View):
+    def __init__(self, bot, user_balance):
+        super().__init__(timeout=60)  # 60 seconds timeout
+        self.bot = bot
+        self.user_balance = user_balance
+        self.current_category = list(SHOP_ITEMS.keys())[0]
+
+    def create_shop_embed(self, category: str, user_balance: int) -> discord.Embed:
+        """Creates a shop embed for a specific category"""
+        emoji = SHOP_EMOJIS.get(category, "🛍️")
+        embed = discord.Embed(
+            title=f"{emoji} Shop - {category.capitalize()}",
+            description="Use `/buy [item]` to purchase!",
+            color=discord.Color.blue()
+        )
+
+        # Add items from the category
+        items = SHOP_ITEMS[category]
+        for item_name, item_data in items.items():
+            name = f"{item_name.capitalize()} - {item_data['price']} Yen"
+            affordable = "✅" if user_balance >= item_data['price'] else "❌"
+            value = f"{item_data['description']}\n{affordable} Can afford"
+            embed.add_field(name=name, value=value, inline=False)
+
+        # Add navigation footer
+        categories = list(SHOP_ITEMS.keys())
+        current_index = categories.index(category) + 1
+        nav_text = f"Page {current_index}/{len(categories)}"
+        embed.set_footer(text=nav_text)
+
+        return embed
+
+    @discord.ui.button(label="Previous", style=discord.ButtonStyle.gray, emoji="⬅️")
+    async def prev_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        categories = list(SHOP_ITEMS.keys())
+        current_index = categories.index(self.current_category)
+
+        # Move to previous category (wrap around to end if at start)
+        new_index = (current_index - 1) % len(categories)
+        self.current_category = categories[new_index]
+
+        # Update embed
+        embed = self.create_shop_embed(self.current_category, self.user_balance)
+        await interaction.response.edit_message(embed=embed, view=self)
+
+    @discord.ui.button(label="Next", style=discord.ButtonStyle.gray, emoji="➡️")
+    async def next_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        categories = list(SHOP_ITEMS.keys())
+        current_index = categories.index(self.current_category)
+
+        # Move to next category (wrap around to start if at end)
+        new_index = (current_index + 1) % len(categories)
+        self.current_category = categories[new_index]
+
+        # Update embed
+        embed = self.create_shop_embed(self.current_category, self.user_balance)
+        await interaction.response.edit_message(embed=embed, view=self)
 
 async def setup(bot):
     await bot.add_cog(Economy(bot))
