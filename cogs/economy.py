@@ -455,6 +455,147 @@ class Economy(commands.Cog):
             logger.error(f"Error in trade command: {e}")
             await interaction.response.send_message("❌ An error occurred while processing the trade. Please try again.", ephemeral=True)
 
+    @app_commands.command(name="leaderboard", description="View the richest users on the server")
+    async def leaderboard(self, interaction: discord.Interaction):
+        logger.info(f"Leaderboard command used by {interaction.user.name} (ID: {interaction.user.id})")
+        try:
+            # Get all user data from database
+            all_data = self.db.get_all_users()
+
+            # Sort users by total wealth (wallet + bank)
+            sorted_users = sorted(
+                all_data.items(),
+                key=lambda x: int(x[1]["balance"]) + int(x[1]["bank"]),
+                reverse=True
+            )
+
+            # Create embeds for pagination (5 users per page)
+            pages = []
+            users_per_page = 5
+
+            for i in range(0, len(sorted_users), users_per_page):
+                page_users = sorted_users[i:i + users_per_page]
+
+                embed = discord.Embed(
+                    title="💰 Wealth Leaderboard",
+                    description="Richest users in the server",
+                    color=discord.Color.gold()
+                )
+
+                for rank, (user_id, data) in enumerate(page_users, start=i + 1):
+                    try:
+                        user = await self.bot.fetch_user(int(user_id))
+                        username = user.name
+                    except:
+                        username = f"Unknown User ({user_id})"
+
+                    total = int(data["balance"]) + int(data["bank"])
+                    wallet = int(data["balance"])
+                    bank = int(data["bank"])
+
+                    # Add medal emoji for top 3
+                    medal = ""
+                    if rank == 1:
+                        medal = "🥇 "
+                    elif rank == 2:
+                        medal = "🥈 "
+                    elif rank == 3:
+                        medal = "🥉 "
+
+                    embed.add_field(
+                        name=f"{medal}Rank #{rank} - {username}",
+                        value=f"Total: {total:,} Yen\nWallet: {wallet:,} Yen\nBank: {bank:,} Yen",
+                        inline=False
+                    )
+
+                embed.set_footer(text=f"Page {i//users_per_page + 1}/{-(-len(sorted_users)//users_per_page)}")
+                pages.append(embed)
+
+            if not pages:  # If no users found
+                embed = discord.Embed(
+                    title="💰 Wealth Leaderboard",
+                    description="No users found in the leaderboard yet!",
+                    color=discord.Color.gold()
+                )
+                pages = [embed]
+
+            # Send paginated leaderboard
+            view = BasePaginatedView(pages)
+            await interaction.response.send_message(embed=pages[0], view=view)
+            logger.info("Leaderboard displayed successfully")
+
+        except Exception as e:
+            logger.error(f"Error in leaderboard command: {e}")
+            await interaction.response.send_message("❌ An error occurred while fetching the leaderboard. Please try again.", ephemeral=True)
+
+    @app_commands.command(name="work", description="Work to earn Yen (Daily Command)")
+    async def work(self, interaction: discord.Interaction):
+        logger.info(f"Work command used by {interaction.user.name} (ID: {interaction.user.id})")
+        try:
+            can_work, cooldown = self.db.can_work(interaction.user.id)
+
+            if not can_work:
+                hours = int(cooldown / 3600)
+                minutes = int((cooldown % 3600) / 60)
+
+                embed = discord.Embed(
+                    title="⏳ Rest Time",
+                    description=f"You need to rest! You can work again in:",
+                    color=discord.Color.red()
+                )
+                embed.add_field(
+                    name="Time Remaining",
+                    value=f"**{hours}** hours and **{minutes}** minutes",
+                    inline=False
+                )
+                embed.set_footer(text="Come back later to earn more Yen!")
+
+                await interaction.response.send_message(embed=embed, ephemeral=True)
+                logger.info(f"Work command cooldown for user {interaction.user.id}: {hours}h {minutes}m")
+                return
+
+            # Choose random job and reward
+            job_type = random.choice(list(WORK_REWARDS.keys()))
+            job = WORK_REWARDS[job_type]
+            earned = random.randint(job["min"], job["max"])
+
+            # Add reward to database
+            self.db.add_work_reward(interaction.user.id, earned)
+
+            # Create embed for work results
+            embed = discord.Embed(
+                title=f"{job['emoji']} Work Results",
+                description=random.choice(job["messages"]).format(earned),
+                color=discord.Color.green()
+            )
+
+            embed.add_field(
+                name="Job Type",
+                value=job_type.replace("_", " ").title(),
+                inline=True
+            )
+            embed.add_field(
+                name="Earnings",
+                value=f"{earned:,} Yen",
+                inline=True
+            )
+
+            # Add new balance
+            new_balance = self.db.get_balance(interaction.user.id)
+            embed.add_field(
+                name="New Balance",
+                value=f"{new_balance:,} Yen",
+                inline=False
+            )
+
+            embed.set_footer(text="You can work again in 24 hours!")
+
+            await interaction.response.send_message(embed=embed)
+            logger.info(f"Work command completed for user {interaction.user.id}: earned {earned} Yen")
+        except Exception as e:
+            logger.error(f"Error in work command: {e}")
+            await interaction.response.send_message("❌ An error occurred while working. Please try again.", ephemeral=True)
+
 
 class TradeView(View):
     def __init__(self, sender: discord.Member, receiver: discord.Member, amount: int, db):

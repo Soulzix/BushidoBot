@@ -209,3 +209,7 @@ class UserData:
         logger.info(f"Cleared {num_warnings} warnings for user {user_id}")
 
         return num_warnings
+
+    def get_all_users(self) -> Dict:
+        """Get data for all users in the database"""
+        return self.data
