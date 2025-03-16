@@ -4,7 +4,12 @@ from discord.ext import commands
 from discord import app_commands
 from dotenv import load_dotenv
 import random
+import logging
 from keep_alive import keep_alive
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -26,13 +31,15 @@ bot = commands.Bot(command_prefix="/", intents=intents)
 async def on_ready():
     try:
         # Sync commands with test guild only
+        logger.info("Attempting to sync commands with test guild...")
         test_guild = discord.Object(id=TEST_GUILD_ID)
         synced = await bot.tree.sync(guild=test_guild)
-        print(f"✅ Slash commands synced to test guild: {len(synced)} commands")
+        logger.info(f"✅ Slash commands synced to test guild: {len(synced)} commands")
     except Exception as e:
-        print(f"❌ Failed to sync commands: {e}")
+        logger.error(f"❌ Failed to sync commands: {e}")
+        return
 
-    print(f"🟢 Logged in as {bot.user}")
+    logger.info(f"🟢 Logged in as {bot.user}")
 
 # 🏦 Economy Commands
 @bot.tree.command(name="currency", description="Displays the current currency for the server.")
@@ -108,5 +115,9 @@ async def welcome(interaction: discord.Interaction, message: str):
 
 # Run the bot
 if __name__ == "__main__":
+    logger.info("Starting Discord bot...")
     keep_alive()
-    bot.run(TOKEN)
+    try:
+        bot.run(TOKEN)
+    except Exception as e:
+        logger.error(f"Failed to start bot: {e}")
