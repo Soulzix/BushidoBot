@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 from utils.db_manager import UserData
 from utils.constants import WORK_REWARDS
+from utils.views import BasePaginatedView
 import random
 import time
 from datetime import datetime, timedelta
@@ -527,74 +528,6 @@ class Economy(commands.Cog):
         except Exception as e:
             logger.error(f"Error in leaderboard command: {e}")
             await interaction.response.send_message("❌ An error occurred while fetching the leaderboard. Please try again.", ephemeral=True)
-
-    @app_commands.command(name="work", description="Work to earn Yen (Daily Command)")
-    async def work(self, interaction: discord.Interaction):
-        logger.info(f"Work command used by {interaction.user.name} (ID: {interaction.user.id})")
-        try:
-            can_work, cooldown = self.db.can_work(interaction.user.id)
-
-            if not can_work:
-                hours = int(cooldown / 3600)
-                minutes = int((cooldown % 3600) / 60)
-
-                embed = discord.Embed(
-                    title="⏳ Rest Time",
-                    description=f"You need to rest! You can work again in:",
-                    color=discord.Color.red()
-                )
-                embed.add_field(
-                    name="Time Remaining",
-                    value=f"**{hours}** hours and **{minutes}** minutes",
-                    inline=False
-                )
-                embed.set_footer(text="Come back later to earn more Yen!")
-
-                await interaction.response.send_message(embed=embed, ephemeral=True)
-                logger.info(f"Work command cooldown for user {interaction.user.id}: {hours}h {minutes}m")
-                return
-
-            # Choose random job and reward
-            job_type = random.choice(list(WORK_REWARDS.keys()))
-            job = WORK_REWARDS[job_type]
-            earned = random.randint(job["min"], job["max"])
-
-            # Add reward to database
-            self.db.add_work_reward(interaction.user.id, earned)
-
-            # Create embed for work results
-            embed = discord.Embed(
-                title=f"{job['emoji']} Work Results",
-                description=random.choice(job["messages"]).format(earned),
-                color=discord.Color.green()
-            )
-
-            embed.add_field(
-                name="Job Type",
-                value=job_type.replace("_", " ").title(),
-                inline=True
-            )
-            embed.add_field(
-                name="Earnings",
-                value=f"{earned:,} Yen",
-                inline=True
-            )
-
-            # Add new balance
-            new_balance = self.db.get_balance(interaction.user.id)
-            embed.add_field(
-                name="New Balance",
-                value=f"{new_balance:,} Yen",
-                inline=False
-            )
-
-            embed.set_footer(text="You can work again in 24 hours!")
-
-            await interaction.response.send_message(embed=embed)
-            logger.info(f"Work command completed for user {interaction.user.id}: earned {earned} Yen")
-        except Exception as e:
-            logger.error(f"Error in work command: {e}")
-            await interaction.response.send_message("❌ An error occurred while working. Please try again.", ephemeral=True)
 
 
 class TradeView(View):
