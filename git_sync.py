@@ -15,6 +15,7 @@ def run_command(command):
         raise
 
 def setup_git():
+    """Configure git if not already done"""
     # Configure git if not already done
     if not os.path.exists('.git'):
         run_command('git init')
