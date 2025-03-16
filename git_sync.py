@@ -24,23 +24,26 @@ def setup_git():
     # Configure git credentials using environment variables
     token = os.environ.get('GITHUB_TOKEN')
     repo = os.environ.get('GITHUB_REPOSITORY')
-    
+
     if not token or not repo:
         raise ValueError("GitHub token or repository not set in environment variables")
+
+    # Remove any 'https://github.com/' prefix if present
+    repo = repo.replace('https://github.com/', '').replace('.git', '')
 
     # Set git configurations
     run_command('git config --global user.name "Replit Sync"')
     run_command('git config --global user.email "sync@replit.com"')
-    
+
     # Add remote repository with token authentication
     remote_url = f"https://x-access-token:{token}@github.com/{repo}.git"
-    
+
     # Check if remote exists
     try:
         run_command('git remote remove origin')
     except:
         pass
-    
+
     run_command(f'git remote add origin {remote_url}')
     logger.info("Git remote configured successfully")
 
@@ -48,11 +51,11 @@ def sync_changes():
     try:
         # Add all changes
         run_command('git add .')
-        
+
         # Create commit with timestamp
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         run_command(f'git commit -m "Auto-sync: {timestamp}"')
-        
+
         # Push changes
         run_command('git push -u origin main --force')
         logger.info("Changes synced successfully")
